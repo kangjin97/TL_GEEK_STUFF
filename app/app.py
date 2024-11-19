@@ -1,5 +1,8 @@
 import requests
 import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Function to fetch auction house data from the API using dynamic region ID
 def fetch_auction_house_data(region_id):
@@ -12,6 +15,21 @@ def fetch_auction_house_data(region_id):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
         return []
+
+def get_grade_color(grade):
+    if grade == 2:
+        # Pastel Green
+        return PatternFill(start_color="BBFFBB", end_color="BBFFBB", fill_type="solid")  
+    elif grade == 3:
+        # Pastel Blue
+        return PatternFill(start_color="ADD8E6", end_color="ADD8E6", fill_type="solid")  
+    elif grade == 4:
+        # Pastel Purple
+        return PatternFill(start_color="D8BFD8", end_color="D8BFD8", fill_type="solid")  
+    elif grade == 5:
+        # Pastel Orange
+        return PatternFill(start_color="FFDAB9", end_color="FFDAB9", fill_type="solid")  
+    return None
     
 # Feature 1: Generate Auction House Summary
 def generate_auction_house_summary(region_id):
@@ -110,6 +128,7 @@ def generate_trait_extract_summary(region_id, sub_sub_category):
     trait_ids = list(trait_ids_map.keys())  # List of all trait IDs
     headers = ["Trait ID", "Trait Name"] + [item.get('name') for item in sorted_items]  # First two columns for Trait ID and Name
 
+    # Now, iterate over each trait_id and place the corresponding minPrice for each item
     for trait_id in trait_ids:
         trait_info = trait_ids_map[trait_id]
         row = [trait_id, trait_info["trait_name"]]  # Trait ID and Name
@@ -124,9 +143,29 @@ def generate_trait_extract_summary(region_id, sub_sub_category):
 
     # Create a DataFrame and save to Excel
     df = pd.DataFrame(data_list, columns=headers)
+    
+    # Create an Excel workbook and sheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Trait Extract Summary"
+
+    # Write DataFrame to Excel sheet
+    for r in dataframe_to_rows(df, index=False, header=True):
+        ws.append(r)
+
+    # Apply grade-based coloring
+    for col_idx, item in enumerate(sorted_items, 3):  # Starting from column index 3 (Trait ID and Name are first two)
+        grade = item.get('grade')
+        fill_color = get_grade_color(grade)
+
+        if fill_color:
+            for row_idx in range(2, len(data_list) + 2):  # Start from row index 2 to avoid header
+                ws.cell(row=row_idx, column=col_idx).fill = fill_color
+
+    # Save the Excel file
     output_file = f"trait_extract_summary_{region_id}_{sub_sub_category}.xlsx"
-    df.to_excel(output_file, index=False)
-    print(f"Trait Extract data written to {output_file}")
+    wb.save(output_file)
+    print(f"Trait Extract data with grade-based coloring written to {output_file}")
 
 # Function to prompt the user to select a region
 def select_region():
